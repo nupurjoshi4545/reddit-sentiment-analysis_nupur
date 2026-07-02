@@ -14,7 +14,10 @@ Author: github:asad70
 
 import requests
 from data import *
-from config import NEWSAPI_KEY
+try:
+    from config import NEWSAPI_KEY
+except ModuleNotFoundError:
+    NEWSAPI_KEY = ""
 import time
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -44,6 +47,10 @@ file_console = Console(file=report_file, highlight=False, markup=False, width=10
 
 def fetch_newsapi(tickers_list):
     '''fetch financial news headlines from NewsAPI for given tickers'''
+    if not NEWSAPI_KEY:
+        print("\nSkipping NewsAPI data: set NEWSAPI_KEY in config.py to enable it.")
+        return {}, {}
+
     print("\nFetching NewsAPI data...")
     a_comments = {}
     tickers_found = {}
@@ -235,7 +242,7 @@ def sentiment_analysis(picks_ayz, a_comments, symbols):
             if not text_clean:
                 continue
 
-            # FinBERT max token length is 512 — truncate long comments
+            # FinBERT max token length is 512 - truncate long comments
             text_clean = text_clean[:512]
 
             try:
@@ -331,7 +338,7 @@ def analyze_stock(ticker, sentiment_score):
         info = stock.info
 
         if not info or info.get('quoteType') is None:
-            print(f"\n  [{ticker}] No data available — may be delisted or invalid ticker.")
+            print(f"\n  [{ticker}] No data available - may be delisted or invalid ticker.")
             return
 
         # ── BASIC INFO ──────────────────────────────────────────────
@@ -430,7 +437,7 @@ def analyze_stock(ticker, sentiment_score):
         except Exception:
             net_insider = 'N/A'
 
-        # share buyback — check if shares outstanding decreased YoY
+        # share buyback - check if shares outstanding decreased YoY
         try:
             shares_hist = stock.get_shares_full(start="2023-01-01")
             if shares_hist is not None and len(shares_hist) >= 2:
@@ -479,30 +486,30 @@ def analyze_stock(ticker, sentiment_score):
             reasons_buy.append(f"Reasonable P/E ratio ({pe_ratio:.1f})")
         elif pe_ratio and pe_ratio > 60:
             score -= 1
-            reasons_caution.append(f"High P/E ratio ({pe_ratio:.1f}) — possibly overvalued")
+            reasons_caution.append(f"High P/E ratio ({pe_ratio:.1f}) - possibly overvalued")
 
         if pb_ratio and pb_ratio < 1:
             score += 2
-            reasons_buy.append(f"Trading below book value (P/B: {pb_ratio:.2f}) — undervalued")
+            reasons_buy.append(f"Trading below book value (P/B: {pb_ratio:.2f}) - undervalued")
         elif pb_ratio and pb_ratio < 3:
             score += 1
             reasons_buy.append(f"Reasonable P/B ratio ({pb_ratio:.2f})")
         elif pb_ratio and pb_ratio > 10:
             score -= 1
-            reasons_caution.append(f"Very high P/B ratio ({pb_ratio:.2f}) — expensive relative to assets")
+            reasons_caution.append(f"Very high P/B ratio ({pb_ratio:.2f}) - expensive relative to assets")
 
         # intrinsic value vs current price
         if intrinsic_value and current_price:
             margin_of_safety = (intrinsic_value - current_price) / intrinsic_value * 100
             if margin_of_safety > 30:
                 score += 2
-                reasons_buy.append(f"Trading {margin_of_safety:.1f}% below intrinsic value (DCF: ${intrinsic_value:.2f}) — strong margin of safety")
+                reasons_buy.append(f"Trading {margin_of_safety:.1f}% below intrinsic value (DCF: ${intrinsic_value:.2f}) - strong margin of safety")
             elif margin_of_safety > 10:
                 score += 1
                 reasons_buy.append(f"Trading below intrinsic value (DCF: ${intrinsic_value:.2f}, margin of safety: {margin_of_safety:.1f}%)")
             elif margin_of_safety < -30:
                 score -= 1
-                reasons_caution.append(f"Trading {abs(margin_of_safety):.1f}% above intrinsic value (DCF: ${intrinsic_value:.2f}) — overvalued")
+                reasons_caution.append(f"Trading {abs(margin_of_safety):.1f}% above intrinsic value (DCF: ${intrinsic_value:.2f}) - overvalued")
         else:
             margin_of_safety = None
 
@@ -531,24 +538,24 @@ def analyze_stock(ticker, sentiment_score):
         # balance sheet
         if current_ratio and current_ratio > 2:
             score += 1
-            reasons_buy.append(f"Strong liquidity — current ratio {current_ratio:.2f}")
+            reasons_buy.append(f"Strong liquidity - current ratio {current_ratio:.2f}")
         elif current_ratio and current_ratio < 1:
             score -= 1
-            reasons_caution.append(f"Weak liquidity — current ratio {current_ratio:.2f} (may struggle to pay short-term debt)")
+            reasons_caution.append(f"Weak liquidity - current ratio {current_ratio:.2f} (may struggle to pay short-term debt)")
 
         if debt_to_equity and debt_to_equity < 30:
             score += 1
             reasons_buy.append(f"Very low debt ({debt_to_equity:.1f} D/E)")
         elif debt_to_equity and debt_to_equity > 150:
             score -= 1
-            reasons_caution.append(f"High debt load ({debt_to_equity:.1f} D/E) — risky")
+            reasons_caution.append(f"High debt load ({debt_to_equity:.1f} D/E) - risky")
 
         if free_cash_flow and free_cash_flow > 0:
             score += 1
             reasons_buy.append(f"Positive free cash flow (${free_cash_flow/1e9:.2f}B)")
         elif free_cash_flow and free_cash_flow < 0:
             score -= 1
-            reasons_caution.append(f"Negative free cash flow (${free_cash_flow/1e9:.2f}B) — burning cash")
+            reasons_caution.append(f"Negative free cash flow (${free_cash_flow/1e9:.2f}B) - burning cash")
 
         # trend
         if above_ma50:
@@ -565,35 +572,35 @@ def analyze_stock(ticker, sentiment_score):
 
         if volume_spike:
             score += 1
-            reasons_buy.append("Volume spike — strong trading momentum")
+            reasons_buy.append("Volume spike - strong trading momentum")
 
         # institutional confidence
         if institutional_hold and institutional_hold > 0.70:
             score += 1
-            reasons_buy.append(f"High institutional ownership ({institutional_hold*100:.1f}%) — professionals are holding")
+            reasons_buy.append(f"High institutional ownership ({institutional_hold*100:.1f}%) - professionals are holding")
         elif institutional_hold and institutional_hold < 0.20:
             reasons_caution.append(f"Low institutional ownership ({institutional_hold*100:.1f}%)")
 
         # insider activity
         if net_insider == 'BUYING':
             score += 1
-            reasons_buy.append("Insiders are buying — management confident in company")
+            reasons_buy.append("Insiders are buying - management confident in company")
         elif net_insider == 'SELLING':
             score -= 1
-            reasons_caution.append("Insiders are selling — management reducing exposure")
+            reasons_caution.append("Insiders are selling - management reducing exposure")
 
         # share buybacks
         if buyback_signal == 'BUYING BACK SHARES':
             score += 1
-            reasons_buy.append(f"Company is buying back its own shares — shareholder friendly")
+            reasons_buy.append(f"Company is buying back its own shares - shareholder friendly")
         elif buyback_signal == 'ISSUING SHARES':
             score -= 1
-            reasons_caution.append("Company is issuing new shares — diluting existing shareholders")
+            reasons_caution.append("Company is issuing new shares - diluting existing shareholders")
 
         # short interest (high short = bearish signal)
         if short_pct_float and short_pct_float > 0.20:
             score -= 1
-            reasons_caution.append(f"High short interest ({short_pct_float*100:.1f}%) — many betting against this stock")
+            reasons_caution.append(f"High short interest ({short_pct_float*100:.1f}%) - many betting against this stock")
 
         # ── VERDICT ──────────────────────────────────────────────────
         pct = score / max_score * 100
@@ -864,4 +871,3 @@ if __name__ == '__main__':
     report_file.write(console.export_text())
     report_file.close()
     console.print(f"\n[bold cyan]Full report saved to: {report_filename}[/bold cyan]")
-    
